@@ -60,5 +60,5 @@ This will:
 1. Load (or build) the vector store 
 2. Run the full retrieval pipeline in the reported order
 3. Evaluate each query category
-4. Print and save per-category metrics (Precision, Recall, F1, MRR, RankFirst (hits-only), HitRate, AvgSim, OOD FP rate)
+4. Print and save per-category metrics (Precision, Recall, F1, MRR, RankFirst, AvgSim, OOD FP rate)
 ```
