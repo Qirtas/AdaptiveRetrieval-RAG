@@ -2,6 +2,7 @@ import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 from RAG.Retrieval.retriever import setup_retriever
 
@@ -35,68 +36,90 @@ def collect_scores(questions: list, retriever, k: int = 1) -> pd.DataFrame:
         })
     return pd.DataFrame(records)
 
-def summarize_and_plot(df: pd.DataFrame, k=0):
+def summarize_and_plot(
+    df: pd.DataFrame,
+    out_hist_path: str = "RAG/Evaluation/data/TestSet/cosine_similarity_histograms.pdf",
+    out_summary_path: str = "RAG/Evaluation/data/TestSet/similarity_summary.txt",
+    use_density: bool = False,            # set True if category sizes differ a lot
+    xlim: tuple = (0.0, 0.85),
+    xticks: np.ndarray | None = None,     # e.g., np.arange(0.0, 0.86, 0.1)
+    ylim: tuple | None = None,            # e.g., (0, 200) if not using density
+    yticks: list | None = None,
+    nbins: int = 24,                      # identical bins for all panels
+    mark_tau: float | None = 0.30,        # dashed line at τ
+    band: tuple | None = (0.30, 0.35),    # light band (τ range)
+):
+    """
+    Summarize cosine similarity per category and plot comparable histograms.
+
+    Expects columns: ['category', 'cosine_similarity'] (others optional).
+    """
+
+    # ---- Summary table (count/min/median/mean/max) ----
     summary = (
-        df
-        .groupby("category")[["distance", "sim_scaled", "cosine_similarity"]]
-        .agg(["count", "min", "median", "mean", "max"])
+        df.groupby("category")[["cosine_similarity"]]
+          .agg(count=("cosine_similarity", "count"),
+               min=("cosine_similarity", "min"),
+               median=("cosine_similarity", "median"),
+               mean=("cosine_similarity", "mean"),
+               max=("cosine_similarity", "max"))
+          .round(3)
     )
     print("\n=== Similarity Score Summary by Category ===")
     print(summary)
 
-    with open("RAG/Evaluation/data/TestSet/similarity_summary.txt", "w") as f:
+    # Persist summary
+    with open(out_summary_path, "w") as f:
         f.write("=== Similarity Score Summary by Category ===\n")
         f.write(summary.to_string())
 
-    cats = df["category"].unique()
-    n = len(cats)
-    # fig, axes = plt.subplots(1, n, figsize=(5*n, 4), sharey=True)
-    # if n == 1:
-    #     axes = [axes]
-    # for ax, cat in zip(axes, cats):
-    #     data = df[df["category"] == cat]["cosine_similarity"]
-    #     ax.hist(data, bins=20, edgecolor='black')
-    #     if cat == "direct_domain_relevant_relationship":
-    #         cat = "Domain Relevant 2 ground truths"
-    #     ax.set_title(f"{cat}")
-    #     ax.set_xlabel("Cosine Similarity")
-    #     ax.set_ylabel("Frequency")
-    # fig.suptitle("Distribution of Raw Cosine Similarity by Category")
-    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    # plt.show()
+    # ---- Consistent plotting config ----
+    if xticks is None:
+        xticks = np.arange(xlim[0], xlim[1] + 1e-9, 0.1)
+    bins = np.linspace(xlim[0], xlim[1], nbins + 1)
 
-    n = len(cats)
-    rows, cols = 2, 2  # 2 rows and 2 columns for 4 plots
+    # Fixed order & display names
+    order = [
+        "direct_domain_relevant",                 # Direct Domain
+        "out_of_domain",                          # OOD
+        "domain_relevant_with_typos",             # Noisy/Typo
+        "direct_domain_relevant_relationship",    # Relational
+    ]
+    name_map = {
+        "direct_domain_relevant": "Direct Domain Queries",
+        "out_of_domain": "Out-of-Domain Queries",
+        "domain_relevant_with_typos": "Noisy/Typo Queries",
+        "direct_domain_relevant_relationship": "Relational Queries",
+    }
 
-    fig, axes = plt.subplots(rows, cols, figsize=(10, 8), sharey=True)
-    axes = axes.flatten()  # Flatten for easy indexing
+    cats_present = [c for c in order if c in df["category"].unique()]
 
-    for ax, cat in zip(axes, cats):
-        data = df[df["category"] == cat]["cosine_similarity"]
-        ax.hist(data, bins=20, edgecolor='black')
+    # Create 2x2 grid; share axes for fair comparison
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7), sharex=True, sharey=True)
+    axes = axes.flatten()
 
-        if cat == "direct_domain_relevant_relationship":
-            title = "Relational Queries"
-        elif cat == "direct_domain_relevant":
-            title = "Direct Domain Queries"
-        elif cat == "domain_relevant_with_typos":
-            title = "Noisy/Typo Queries"
-        elif cat == "out_of_domain":
-            title = "Out of Domain Queries"
-        else:
-            title = cat
+    for ax_idx, cat in enumerate(cats_present):
+        ax = axes[ax_idx]
+        data = df.loc[df["category"] == cat, "cosine_similarity"].to_numpy()
 
-        ax.set_title(title)
+        ax.hist(data, bins=bins, edgecolor="black", density=use_density)
+        ax.set_title(name_map.get(cat, cat))
         ax.set_xlabel("Cosine Similarity")
-        ax.set_ylabel("Frequency")
+        ax.set_ylabel("Frequency" if not use_density else "Density")
+        ax.set_xlim(*xlim)
+        ax.set_xticks(xticks)
 
-    # Remove any unused axes (if you have fewer than 4 categories)
-    for i in range(len(cats), len(axes)):
-        fig.delaxes(axes[i])
+        if ylim is not None and not use_density:
+            ax.set_ylim(*ylim)
+        if yticks is not None:
+            ax.set_yticks(yticks)
 
-    fig.suptitle("")
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # Force labels on all subplots
+    for ax in axes:
+        ax.tick_params(labelbottom=True, labelleft=True)
 
-    # Save as PDF
-    plt.savefig("RAG/Evaluation/data/TestSet/cosine_similarity_histograms.pdf")
+    plt.tight_layout()
+    plt.savefig(out_hist_path, bbox_inches="tight")
     plt.show()
+
+    return summary

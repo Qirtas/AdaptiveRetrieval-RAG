@@ -9,30 +9,32 @@ logger = logging.getLogger(__name__)
 
 def setup_retriever(persist_directory="RAG/ProcessedDocuments/chroma_db",
                     model_name="all-MiniLM-L6-v2",
+                    vectorstore=None,
                     k=3):
     """
-        Loads the Chroma vector store and initializes a retriever for querying.
+    Loads (or reuses) a Chroma vector store and initializes a retriever for querying.
 
-        Args:
-            persist_directory (str): Path to the Chroma DB directory.
-            model_name (str): Name of the HuggingFace embedding model.
-            k (int): Number of top documents to retrieve per query.
+    Args:
+        persist_directory (str): Path to the Chroma DB directory.
+        model_name (str): Name of the HuggingFace embedding model.
+        vectorstore (Chroma, optional): An existing Chroma vector store. If None, a new one is loaded.
+        k (int): Number of top documents to retrieve per query.
 
-        Returns:
-            VectorStoreRetriever: A configured retriever object.
-        """
-    logger.info(f"Loading vector store from {persist_directory}")
-
-    embedding_function = HuggingFaceEmbeddings(model_name=model_name)
-
-    vectorstore = Chroma(persist_directory=persist_directory,
-                         embedding_function=embedding_function)
-
-    logger.info(f"Vector store loaded with {vectorstore._collection.count()} documents")
+    Returns:
+        VectorStoreRetriever: A configured retriever object.
+    """
+    if vectorstore is None:
+        logger.info(f"Loading vector store from {persist_directory}")
+        embedding_function = HuggingFaceEmbeddings(model_name=model_name)
+        vectorstore = Chroma(persist_directory=persist_directory,
+                             embedding_function=embedding_function)
+        logger.info(f"Vector store loaded with {vectorstore._collection.count()} documents")
+    else:
+        logger.info("Using provided vector store")
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-
     logger.info(f"Retriever initialized to fetch top {k} documents")
+
     return retriever
 
 

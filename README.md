@@ -1,64 +1,18 @@
-# RAGForDatamite
+# LLM-RAG Retrieval Optimisation: An Empirical Study of Fixed and Adaptive Parameters
 
-Prototype for a Retrieval-Augmented Generation (RAG) feature in DATAMITE using LangChain. 
-
-What Does This Project Do?
-
-This project builds a basic pipeline that:
-- Preprocesses structured CSV files (content for KB)
-- Converts them into LangChain-compatible `Document` objects
-- Generates vector embeddings for LangChain docs
-- Stores those embeddings in a vector DB
-- Can retrieve documents based on users question
-- Can provide LLM (Claude or Deepseek) generated answers for users questions
-
-In this prototype, we also expose the pipeline through a FastAPI service. This allows us to run the API locally, ask questions via the CLI or endpoint and receive answers directly from the chosen LLM along with the supporting source documents.  
-
-## How to Run
-
-This project supports running the RAG Fast API with **two different LLM providers**:
-- [Anthropic Claude](https://www.anthropic.com/)  
-- [DeepSeek (via OpenRouter)](https://openrouter.ai/)  
-
-You can switch between them without changing code by setting one environment variable.
+This rpeo contains the code and data needed to reproduce the experiments reported in the paper on adaptive retrieval parameter selection for RAG.
+It uses a single entry point, main.py, which runs the pipeline end-to-end in the same order as described in the paper.
 
 ---
 
-## What you’ll do
-
-	1.	Get the code
-	2.	Create a Python environment
-	3.	Install the required packages
-	4.	Set your LLM provider and API key
-	5.	Run a one-shot test by sending API request
-	6.	Ask more questions (without rebuilding)
-
-
-
-### Prerequisites
+## Prerequisites
 
 - **Python**: version **3.10** is required.  
-- **Conda** (For environment management).  
-
----
-### 1. Get the code
-
-Open a terminal (PowerShell on Windows, Terminal on macOS) and run:
-
-```bash
-git clone --recursive https://github.com/eduardovyhmeister/Datamite.git
-cd Datamite
-git submodule update --init --recursive --remote
-```
-
-Open the submodule folder in your editor:
-Datamite/RAGDataMite
-
-If using PyCharm, open RAGDataMite directly as the project.
+- **Conda** (For environment management). 
 
 ---
 
-### 2. Create a Python environment
+### 1. Create a Python environment
 
 ```bash
 conda create -n datamite_env python=3.10 -y
@@ -66,7 +20,7 @@ conda activate datamite_env
 ```
 ---
 
-### 3. Install required packages
+### 2. Install required packages
 
 From inside RAGDataMite:
 ```bash
@@ -74,117 +28,37 @@ pip install -r requirements.txt
 ```
 ---
 
-### 4. Set your LLM provider and API key
+### 3. Data & Paths
 
-Choose one provider.
-
-####  Option A — Claude (Anthropic)
-1. Sign in to the [Anthropic Console](https://console.anthropic.com/).
-2. Navigate to **Settings** → **API Keys**
-3. Click **Create Key**, give it a name (e.g., “datamite_test”), and copy the generated key. **Save it safely**.
-
-Next, set this API key in your environment variables
-
-##### Mac/Linus OS
-```bash
-export LLM_PROVIDER=claude
-export ANTHROPIC_API_KEY=YOUR_ANTHROPIC_KEY
-```
-##### Windows
+Test sets are available at:
 
 ```bash
-$env:LLM_PROVIDER = "claude"
-$env:ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_KEY"
+RAG/Evaluation/data/TestSet/
+├── test_set_direct_domain_questions.json
+├── test_set_direct_domain_relationship_questions.json
+├── test_set_domain_typo_questions.json
+└── test_set_out_of_domain_trivia.json
 ```
 
-####  Option B — DeepSeek (via OpenRouter)
-
-1. Go to [OpenRouter’s website](https://openrouter.ai/) and **sign up or log in**.
-2. Open the menu (top-right), go to **Settings** → **API Keys**, and click **Create Key**.
-3. Name the key and then copy it and store it safely—this key grants API access to DeepSeek models via OpenRouter.
-
-Next, set this API key in your environment variables
-
-##### Mac/Linus OS
+The ChromaDB persist directory (vector store) defaults to:
 ```bash
-export LLM_PROVIDER=deepseek
-export OPENROUTER_API_KEY=YOUR_OPENROUTER_KEY
+RAG/ProcessedDocuments/chroma_db
 ```
 
-##### Windows
+If it doesn’t exist, main.py will create/use it as needed.
 
-```bash
-$env:LLM_PROVIDER = "deepseek"
-$env:OPENROUTER_API_KEY = "YOUR_OPENROUTER_KEY"
-```
-
-Note: On Windows you must include quotes whenever setting an environment variable , e.g. "sk-or-..."
 
 ---
 
-### 5. Run a one-shot test
-
-Build the index, start the server, send a query, and stop the server, all in one step.
-
+### 4. Run Everything 
 ```bash
-python cli.py ask --index --reset-index --question "What is CAPEX?" --port 8000
-```
-Subsequent tests (do NOT index again):
-
-```bash
-python cli.py ask --question "What is CAPEX?" --port 8000 --no-index
+python main.py
 ```
 
----
-
-## Switching providers later
-
-Just reset the environment variables for the provider you want (Claude or DeepSeek) and re-run the test:
-
+This will:
 ```bash
-python cli.py ask --question "What is CAPEX?" --port 8000 --no-index
+1. Load (or build) the vector store 
+2. Run the full retrieval pipeline in the reported order
+3. Evaluate each query category
+4. Print and save per-category metrics (Precision, Recall, F1, MRR, RankFirst (hits-only), HitRate, AvgSim, OOD FP rate)
 ```
-
----
-
-## Example response
-
-When successful, you should see something like this:
-
-```bash
-Starting Uvicorn on port 8000 ...
-POST http://127.0.0.1:8000/ask
-{
-  "answer": "Based on the provided context, CAPEX (also known as Capital Cost) refers to one-time, upfront investments made to acquire, upgrade, or maintain long-term physical and technological assets...",
-  "sources": [
-    {
-      "name": "CAPEX",
-      "score": null,
-      "url": null,
-      "snippet": "KPI Name: CAPEX\nAlternative Names: Capital Cost, Hardware Costs...",
-      "metadata": {
-        "source": "RAG/Content/ProcessedFiles/clean_KPIs.csv",
-        "type": "KPI",
-        "name": "CAPEX"
-      }
-    }
-  ],
-  "meta": {
-    "k": 3,
-    "min_similarity": 0.28
-  }
-}
-Stopping server (PID 10424)
-```
-
-	•	answer → model’s response based on your documents
-	•	sources → which document(s) were used
-	•	meta → retrieval settings used
-
----
-
-## Notes for Windows vs macOS
-
-	•	Setting variables:
-	•	macOS/Linux → export NAME=value
-	•	Windows PowerShell → $env:NAME = "value"

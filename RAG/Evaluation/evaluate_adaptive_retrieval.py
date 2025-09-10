@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
-def get_retriever():
+def get_retriever(vectorstore=None):
 
     from RAG.Retrieval.adaptive_retriever import AdaptiveRetriever
 
@@ -22,8 +22,7 @@ def get_retriever():
     model_name = "all-MiniLM-L6-v2"
     logger.info(f"Loading vector store from {persist_directory}")
     embedding_function = HuggingFaceEmbeddings(model_name=model_name)
-    vectorstore = Chroma(persist_directory=persist_directory,
-                         embedding_function=embedding_function)
+    vectorstore = vectorstore
 
     return AdaptiveRetriever(
     vectorstore=vectorstore,
@@ -242,12 +241,13 @@ def run_evaluation(
     fixed_k: Optional[int] = None,
     ood_fp_mode: str = "nonempty",
     ood_min_score: Optional[float] = None,
+    vectorstore = None
 ) -> Dict[str, Any]:
     items = []
     for p in testset_paths:
         items.extend(load_testset(Path(p)))
 
-    retriever = get_retriever()
+    retriever = get_retriever(vectorstore)
     results = evaluate_queries(
         retriever,
         items,

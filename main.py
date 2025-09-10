@@ -90,10 +90,9 @@ if __name__ == '__main__':
 
     logging.info("Done.")
 
-    '''
     # 1. Preprocess CSV Files to clean for JSON related issues
 
-    output_dir = "RAGDataMite/RAG/Content/ProcessedFiles"
+    output_dir = "RAG/Content/ProcessedFiles"
 
     try:
         processed_files = preprocess_data(output_dir)
@@ -142,7 +141,7 @@ if __name__ == '__main__':
 
     # 3. Analysing if there is a need for text chunking
 
-    with open('RAGDataMite/RAG/ProcessedDocuments/all_documents.pkl', 'rb') as f:
+    with open('RAG/ProcessedDocuments/all_documents.pkl', 'rb') as f:
         documents = pickle.load(f)
 
     doc_lengths = defaultdict(list)
@@ -175,70 +174,13 @@ if __name__ == '__main__':
     # 5. Creating vector DB and save embeddings to Vector DB
 
     vectorstore = create_vectorstore()
-    '''
-
-    # 6. Testing Retrieval
-
-    # "What is Access Cost?",
-    # "Explain the Financial Perspective in BSC",
-    # "How do we measure data quality?",
-    # "What metrics are related to operational efficiency?",
-    # "Tell me about renewable energy factors in our KPIs"
-    #
-    # test_queries = [
-    #     "How do we measure data quality?"
-    # ]
-    #
-    # run_test_queries(test_queries, k=2)
-    #
-    # get_retrieval_results("What is the airspeed velocity of an unladen swallow?", k=5)
-    #
-    # query = "What is Access Cost?"
-    # test_retrieval_with_scores(query, k=2)
-    #
-    # Testing retrieval with both k and similarity_threshold
-
-    '''
-    test_queries = [
-        "What is Access Cost?",
-        "Define CAPES",
-        "What is Revenue Growth?"
-    ]
-
-    print("Testing specific queries with new thresholds:")
-    print("=" * 60)
-
-    for query in test_queries:
-        print(f"\nQuery: '{query}'")
-
-        # Test with moderate threshold (0.44)
-        results = get_retrieval_with_threshold(
-            query=query,
-            k=3,
-            similarity_threshold=0.48
-        )
-
-        if results:
-            print(f"Found {len(results)} results with threshold 0.44:")
-            for i, result in enumerate(results[:3]):
-                print(f"  {i + 1}. {result['metadata'].get('name')} "
-                      f"(Score: {result['similarity_score']:.3f})")
-        else:
-            print("No results found with threshold 0.44")
-    '''
-
-    # 7. Ask Claude with Context along with validation step
-
-    # result1 = rag_with_validation("What is CAPEX?", min_similarity=0.20)
-    # print(f"Answer: {result1['answer']}")
-    # print(f"Number of sources: {len(result1['sources'])}")
-    # print()
 
 # -----------------------------------------------------------------------------
 
     # *****************************************
     # RAG EVALUATION
     # *****************************************
+
 
     # Step 1: Generate test set with 5 different question types
 
@@ -253,7 +195,6 @@ if __name__ == '__main__':
         'Criteria': 'RAG/Evaluation/data/clean_Criteria.csv'
     }
 
-    '''
     all_questions = []
 
     print("Generating test questions...")
@@ -305,7 +246,7 @@ if __name__ == '__main__':
         ]
 
     # Save to JSON file
-    output_file = 'RAGDataMite/RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json'
+    output_file = 'RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(all_questions, f, indent=2, ensure_ascii=False)
 
@@ -326,13 +267,11 @@ if __name__ == '__main__':
     for i in range(min(5, len(all_questions))):
         print(f"  - {all_questions[i]['question']}")
 
-    
-
     # 2: Domain relevant with typos
     # Generating typo variations of direct domain questions.
 
     # Load the direct domain questions
-    input_file = 'RAGDataMite/RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json'
+    input_file = 'RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json'
 
     with open(input_file, 'r', encoding='utf-8') as f:
         direct_questions = json.load(f)
@@ -363,15 +302,13 @@ if __name__ == '__main__':
             f"{q['expected_document_type']}::{q['entity_name']}"
         ]
 
-    output_file = 'RAGDataMite/RAG/Evaluation/data/TestSet/test_set_domain_typo_questions.json'
+    output_file = 'RAG/Evaluation/data/TestSet/test_set_domain_typo_questions.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(typo_questions, f, indent=2, ensure_ascii=False)
 
     print(f"Test set saved to: {output_file}")
-    '''
 
 
-    '''
     # 3. Out of Domain
 
     print("Fetching trivia questions from Open Trivia Database...")
@@ -381,9 +318,8 @@ if __name__ == '__main__':
 
     print("Created simple out-of-domain questions for testing")
     print("\nTo get 500+ questions from Open Trivia DB, uncomment the API calls in the main section")
-    '''
 
-    '''
+
     # Domain Relevant with 2 ground truths, domain relationship ques
 
     # Load all entities by type
@@ -437,19 +373,18 @@ if __name__ == '__main__':
         json.dump(all_questions, f, indent=2, ensure_ascii=False)
 
     print(f"Test set saved to: {output_file}")
-    '''
 
     # ----------------------------------------------------------------------------------------------------------------
 
 
     # 2. Calculating similarity scores for top-1 hit for test sets to see similarity distributions
 
-    '''
     # 1) Initialize retriever (top-1)
 
     k=1
     retriever = setup_retriever(
         persist_directory="RAG/ProcessedDocuments/chroma_db",
+        vectorstore = vectorstore,
         k=k
     )
 
@@ -467,9 +402,13 @@ if __name__ == '__main__':
     df_all = pd.concat([df_direct, df_out, df_direct_typo, df_direct_relation], ignore_index=True)
 
     # 4) Summarize and plot
-    summarize_and_plot(df_all, k)
+    summarize_and_plot(
+        df_all,
+        out_hist_path="RAG/Evaluation/data/TestSet/cosine_similarity_histograms.pdf",
+        out_summary_path="RAG/Evaluation/data/TestSet/similarity_summary.txt",
+    )
     
-
+    
     # 3. Running gird search to find optimal k and threshold
 
     direct_ques_testset = load_test_set("RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json")
@@ -483,13 +422,14 @@ if __name__ == '__main__':
     df_grid = evaluate_grid(
         test_questions=in_dom_relation_ques_testset,
         persist_directory="RAG/ProcessedDocuments/chroma_db",
+        vectorstore=vectorstore,
         ks=ks,
         thresholds=thresholds
     )
 
     df_grid.to_csv("RAG/Evaluation/data/TestSet/GridSearchResults/grid_search_relational.csv", index=False)
     print(df_grid.sort_values(["f1"], ascending=False).head(10))
-    '''
+
 
     # Plotting
 
@@ -519,8 +459,8 @@ if __name__ == '__main__':
     model_name = "all-MiniLM-L6-v2"
     logger.info(f"Loading vector store from {persist_directory}")
     embedding_function = HuggingFaceEmbeddings(model_name=model_name)
-    vectorstore = Chroma(persist_directory=persist_directory,
-                         embedding_function=embedding_function)
+    # vectorstore = Chroma(persist_directory=persist_directory,
+    #                      embedding_function=embedding_function)
 
     csv_files = {
         'KPIs': 'RAG/Content/ProcessedFiles/clean_KPIs.csv',
@@ -539,45 +479,20 @@ retriever = AdaptiveRetriever(
     pool_cap=20
 )
 
-test_queries = [
-    "What is CAPEX?",
-    "What does Accessibility measure?",
-    "Explain the relation between Data Price and Information Frequency.",
-    "Explain the relation between Information Frequency and Data Price.",
-    "What is CCAPEX?",
-    "What is Information Frequency?",
-    'How does Access Cost interact with Accessibility when evaluating data monetization strategies?',
-    'In a cloud data marketplace, if Access Cost increases, what impact might it have on Accessibility?',
-    'Explain the trade-offs between Access Cost and Accessibility in terms of data quality vs. cost.',
-    'How does Accuracy interact with Adaptability when evaluating data monetization strategies?',
-    'In a cloud data marketplace, if Accuracy increases, what impact might it have on Adaptability?',
-    'Explain the trade-offs between Accuracy and Adaptability in terms of data quality vs. cost.',
-    'How does Age interact with Availability when evaluating data monetization strategies?',
-    'In a cloud data marketplace, if Age increases, what impact might it have on Availability?',
-    'Explain the trade-offs between Age and Availability in terms of data quality vs. cost.',
-    'How does Backup interact with Budget when evaluating data monetization strategies?',
-    'If a company wants to maximize both Data Value and Accessibility while keeping Access Cost low, what strategies could be applied?',
-    'How are Accuracy, Age, and Adaptability connected when assessing the long-term usability of datasets?',
-    'In the context of operational efficiency, how might Granularity and Completeness affect decision-making?'
-]
+# Testing adaptive retrieval with test sets
 
-# query = "How does Access Cost interact with Accessibility when evaluating data monetization strategies?"
-#
-# candidates = retriever.step1_wide_retrieval(query)
-# reranked = retriever.step2_rerank(candidates, query)
-# final_docs = retriever.step3_adaptive_selection(reranked, query)
+testsets = {
+    "direct": "RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json",
+    "relational": "RAG/Evaluation/data/TestSet/test_set_direct_domain_relationship_questions.json",
+    "noisy": "RAG/Evaluation/data/TestSet/test_set_domain_typo_questions.json",
+    "ood": "RAG/Evaluation/data/TestSet/test_set_out_of_domain_trivia.json",
+}
 
-# Testing adaptive retrival with test sets
+all_results = {}
 
-testsets = [
-        #"RAG/Evaluation/data/TestSet/test_set_direct_domain_questions.json"
-        #"RAG/Evaluation/data/TestSet/test_set_direct_domain_relationship_questions.json"
-        "RAG/Evaluation/data/TestSet/test_set_domain_typo_questions.json"
-        #"RAG/Evaluation/data/TestSet/test_set_out_of_domain_trivia.json",
-        #"RAG/Evaluation/data/TestSet/2OODTest.json"
-
-    ]
-
-results = run_evaluation(testsets, stage="final", ood_fp_mode="nonempty")
-print("\nAggregate:", results["aggregate"])
+for name, path in testsets.items():
+    results = run_evaluation([path], stage="final", ood_fp_mode="nonempty", vectorstore=vectorstore)
+    all_results[name] = results
+    print(f"\n{name.capitalize()} results:")
+    print("Aggregate:", results["aggregate"])
 

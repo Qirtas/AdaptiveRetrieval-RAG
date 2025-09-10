@@ -15,7 +15,7 @@ def load_test_set(path):
         return json.load(f)
 
 
-def evaluate_grid(test_questions, persist_directory, ks, thresholds):
+def evaluate_grid(test_questions, persist_directory, vectorstore, ks, thresholds):
     """
     Run grid-search over ks and raw-cosine thresholds.
     Returns a DataFrame with columns: k, threshold, precision, recall, f1,
@@ -25,7 +25,7 @@ def evaluate_grid(test_questions, persist_directory, ks, thresholds):
     n_q = len(test_questions)
 
     for k in ks:
-        retriever = setup_retriever(persist_directory=persist_directory, k=k)
+        retriever = setup_retriever(persist_directory=persist_directory, vectorstore=vectorstore, k=k)
 
         for thr in thresholds:
             total_tp = 0  # total true positives across all queries
