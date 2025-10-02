@@ -79,7 +79,7 @@ def evaluate_grid(test_questions, persist_directory, vectorstore, ks, thresholds
                     first_match_ranks.append(first_match_rank)
                 else:
                     reciprocal_ranks.append(0.0)
-                    first_match_ranks.append(k + 1)
+                    #first_match_ranks.append(k + 1)
 
                 all_similarities.extend(filtered_similarities)
 
